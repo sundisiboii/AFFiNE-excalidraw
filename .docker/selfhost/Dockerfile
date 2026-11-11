@@ -24,6 +24,7 @@ RUN yarn affine @affine/web build \
 # Run it explicitly first so --progress=plain exposes downloads and errors.
 # Cache dependencies and compiled artifacts even if a build is interrupted.
 ARG TARGETARCH
+ARG AFFINE_PRO_PUBLIC_KEY_FILE=.docker/selfhost/affine-pro-public-key.pem
 # Use Git's HTTPS transport and expose its errors instead of Cargo's built-in
 # transport. Public dependencies must never wait for interactive credentials.
 ENV CARGO_NET_GIT_FETCH_WITH_CLI=true GIT_TERMINAL_PROMPT=0
@@ -37,7 +38,8 @@ RUN --mount=type=cache,id=affine-cargo-registry,target=/usr/local/cargo/registry
     rustc --version; \
     cargo --version; \
     cargo metadata --locked --manifest-path packages/backend/native/Cargo.toml --format-version 1 > /tmp/affine-cargo-metadata.json; \
-    CC="clang -D_BSD_SOURCE" DEBUG="napi:*" yarn workspace @affine/server-native build; \
+    node -e 'require("node:crypto").createPublicKey(require("node:fs").readFileSync(process.argv[1]))' "$AFFINE_PRO_PUBLIC_KEY_FILE"; \
+    AFFINE_PRO_PUBLIC_KEY="$(cat "$AFFINE_PRO_PUBLIC_KEY_FILE")" CC="clang -D_BSD_SOURCE" DEBUG="napi:*" yarn workspace @affine/server-native build; \
     node -e 'const fs = require("node:fs"); const arch = process.arch === "arm" ? "armv7" : process.arch; const file = "server-native." + arch + ".node"; fs.renameSync("packages/backend/native/server-native.node", "packages/backend/native/" + file); fs.writeFileSync("packages/backend/native/index.js", "module.exports = require(" + JSON.stringify("./" + file) + ");\n")'
 # This is a single-architecture image. The generated native entry above keeps
 # rspack from resolving the release loader's other architectures' binaries.

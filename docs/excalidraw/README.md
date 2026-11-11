@@ -169,6 +169,27 @@ A first release compilation can still take substantial time once dependencies
 are available. These changes improve observability and retry efficiency; they
 do not establish which network/resource condition occurred on another host.
 
+## Public verification key for source builds
+
+This AFFiNE version requires `AFFINE_PRO_PUBLIC_KEY` at native compilation time,
+including for ordinary self-hosted startup. The Dockerfile validates and embeds
+`.docker/selfhost/affine-pro-public-key.pem`. It is the public verification key
+exported by the official `ghcr.io/toeverything/affine:stable` image, version
+0.27.4, retrieved on 2026-11-12 at digest:
+
+`sha256:b649f5ce2384ffdf13c23bccf81d759e15973d59d0b0058af65d895a84373099`
+
+Its SHA-256 fingerprint over DER-encoded SubjectPublicKeyInfo is:
+
+`4749239e198d3cd3d04cb41576b95def7e601885e58de287b43b806e451dce81`
+
+This is a public verification key, not a signing key or license. License checks
+remain enabled. The repository's debug/test key is not used. To use an updated
+trusted public key, place its PEM file inside the build context and pass
+`--build-arg AFFINE_PRO_PUBLIC_KEY_FILE=path/to/public-key.pem`. Rebuild the image;
+setting an environment variable only at container startup cannot change a key
+compiled into the Rust module.
+
 ## Troubleshooting a missing server bundle
 
 If migrations report `Cannot find module /app/dist/main.js`, the image is
@@ -224,7 +245,18 @@ necessary to validate infrastructure limits and deployment-specific behavior.
 - Changed TypeScript/JavaScript files passed oxlint and formatting checks.
 - Dockerfile validation/base-image resolution and Compose configuration passed.
 
-A complete Docker image build and a running self-hosted backend/multi-client
-session have not been exercised here. The source-build Dockerfile is provided
-for that deployment verification; Dockerfile validation alone does not prove
-that every native/backend build step or production deployment succeeds.
+- A complete Linux amd64 source Docker image build passed, including native
+  compilation, server bundling, dependency preparation, and runtime cleanup.
+- The packaged native module loaded with 79 exports, and its embedded public
+  verification key matched the official key fingerprint documented above.
+- With isolated disposable PostgreSQL/Redis containers and new test volumes,
+  schema and application data migrations completed successfully. Retrying after
+  a failed startup with schema migrations already applied also succeeded.
+- The app started in self-hosted mode and served both its HTML and a local
+  Excalidraw WOFF2 font with HTTP 200 responses.
+- Three CLI subprocess tests verify child success, child failure propagation,
+  and failure when Yarn cannot be launched.
+
+Existing user data was not used in these deployment checks. ARM64 image builds,
+production upgrades with existing data, and authenticated multi-client drawing
+synchronization still require deployment-specific verification.
