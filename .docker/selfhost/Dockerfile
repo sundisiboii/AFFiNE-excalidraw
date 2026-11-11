@@ -38,12 +38,17 @@ RUN --mount=type=cache,id=affine-cargo-registry,target=/usr/local/cargo/registry
     cargo --version; \
     cargo metadata --locked --manifest-path packages/backend/native/Cargo.toml --format-version 1 > /tmp/affine-cargo-metadata.json; \
     CC="clang -D_BSD_SOURCE" DEBUG="napi:*" yarn workspace @affine/server-native build; \
-    node -e 'const fs = require("node:fs"); fs.renameSync("packages/backend/native/server-native.node", "packages/backend/native/server-native." + (process.arch === "arm" ? "armv7" : process.arch) + ".node")'
-RUN yarn workspace @affine/server build
+    node -e 'const fs = require("node:fs"); const arch = process.arch === "arm" ? "armv7" : process.arch; const file = "server-native." + arch + ".node"; fs.renameSync("packages/backend/native/server-native.node", "packages/backend/native/" + file); fs.writeFileSync("packages/backend/native/index.js", "module.exports = require(" + JSON.stringify("./" + file) + ");\n")'
+# This is a single-architecture image. The generated native entry above keeps
+# rspack from resolving the release loader's other architectures' binaries.
+RUN yarn workspace @affine/server build \
+    && test -s packages/backend/server/dist/main.js \
+    && node --check packages/backend/server/dist/main.js
 # Match the existing release image's runtime dependency layout.
 RUN yarn workspaces focus @affine/server --production \
     && yarn workspace @affine/server prisma generate \
-    && cp -a node_modules packages/backend/server/node_modules
+    && cp -a node_modules packages/backend/server/node_modules \
+    && test -s packages/backend/server/dist/main.js
 
 FROM node:22.23.4-bookworm-slim AS assets
 WORKDIR /app
@@ -55,13 +60,16 @@ COPY --from=build /src/packages/frontend/admin/dist /app/static/admin
 COPY --from=build /src/packages/frontend/apps/mobile/dist /app/static/mobile
 ARG TARGETARCH
 ARG TARGETVARIANT
-RUN AFFINE_DOCKER_CLEAN=1 TARGETARCH="${TARGETARCH}" TARGETVARIANT="${TARGETVARIANT}" node ./scripts/docker-clean.mjs
+RUN AFFINE_DOCKER_CLEAN=1 TARGETARCH="${TARGETARCH}" TARGETVARIANT="${TARGETVARIANT}" node ./scripts/docker-clean.mjs \
+    && test -s /app/dist/main.js \
+    && node --check /app/dist/main.js
 
 FROM node:22.23.4-bookworm-slim
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends openssl libjemalloc2 ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=assets /app /app
+RUN test -s /app/dist/main.js && node --check /app/dist/main.js
 ENV LD_PRELOAD=libjemalloc.so.2
 EXPOSE 3010
 CMD ["sh", "-c", "node ./scripts/upgrade-config.js && exec node ./dist/main.js"]

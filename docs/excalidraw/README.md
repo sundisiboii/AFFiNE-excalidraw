@@ -169,6 +169,31 @@ A first release compilation can still take substantial time once dependencies
 are available. These changes improve observability and retry efficiency; they
 do not establish which network/resource condition occurred on another host.
 
+## Troubleshooting a missing server bundle
+
+If migrations report `Cannot find module /app/dist/main.js`, the image is
+incomplete. A bundling failure previously could be hidden by the AFFiNE CLI
+wrapper returning success. The wrapper now propagates Yarn's exit code; its
+regression tests run with `node --test tools/cli/bin/cli.spec.mjs`.
+
+The source Docker build produces one native architecture. It generates a
+matching native loader inside the build stage so Rspack does not try to resolve
+unbuilt binaries for the other release architectures. Server bundle existence
+and syntax are checked after bundling, dependency preparation, image cleanup,
+and in the final runtime image. These checks do not start the server or run
+migrations during image creation.
+
+After rebuilding, check the image before starting services:
+
+```sh
+docker run --rm --entrypoint node affine-excalidraw:local --check /app/dist/main.js
+```
+
+Use the rebuilt image for both AFFiNE services and recreate them using your
+existing Compose configuration. Preserve database/storage volumes. Successful
+schema migrations do not imply that the later application data migrations ran;
+the migration job must finish successfully before starting the app.
+
 ## Verification
 
 ```sh
