@@ -68,6 +68,19 @@ export const AffineCommandRegistry = new (class {
         window,
         {
           [keybinding]: (e: Event) => {
+            // Excalidraw owns editing shortcuts, including bindings registered
+            // in capture phase. Keep AFFiNE's mode switch available.
+            if (
+              command.id !== 'affine:doc-mode-switch' &&
+              e
+                .composedPath()
+                .some(
+                  target =>
+                    target instanceof HTMLElement &&
+                    Object.hasOwn(target.dataset, 'affineExcalidraw')
+                )
+            )
+              return;
             // Skip when Alt produces a locale input character (e.g. macOS
             // Polish layout: Option+S → "ś"). The user is typing the
             // character, not invoking the shortcut bound to the physical

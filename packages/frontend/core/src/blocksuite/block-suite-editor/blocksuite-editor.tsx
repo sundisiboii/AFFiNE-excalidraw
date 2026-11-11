@@ -32,6 +32,7 @@ import type { CSSProperties, HTMLAttributes } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { DefaultOpenProperty } from '../../components/properties';
+import { Whiteboard } from '../excalidraw/whiteboard';
 import { BlocksuiteDocEditor, BlocksuiteEdgelessEditor } from './lit-adaper';
 import * as styles from './styles.css';
 
@@ -238,6 +239,8 @@ const BlockSuiteEditorImpl = ({
 
     return () => {
       canceled = true;
+      if (globalThis.currentEditor === editor)
+        globalThis.currentEditor = undefined;
       disposableGroup.dispose();
     };
   }, [affineEditorContainerProxy, onEditorReady, page, server]);
@@ -369,6 +372,12 @@ export const BlockSuiteEditor = (props: EditorProps) => {
     <Slot style={{ '--affine-font-family': fontFamily } as CSSProperties}>
       {isLoading ? (
         <EditorLoading longerLoading={longerLoading} />
+      ) : props.mode === 'edgeless' ? (
+        <Whiteboard
+          key={props.page.id}
+          {...props}
+          legacyEditor={<BlockSuiteEditorImpl {...props} />}
+        />
       ) : (
         <BlockSuiteEditorImpl key={props.page.id} {...props} />
       )}

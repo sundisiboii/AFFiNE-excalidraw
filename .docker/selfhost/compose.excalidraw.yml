@@ -1,0 +1,6 @@
+# Use alongside compose.yml; both AFFiNE services must use the same custom image.
+services:
+  affine:
+    image: affine-excalidraw:local
+  affine_migration:
+    image: affine-excalidraw:local

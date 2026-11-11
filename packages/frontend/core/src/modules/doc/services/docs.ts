@@ -1,3 +1,4 @@
+import { copyExcalidrawScene } from '@affine/core/blocksuite/excalidraw/scene-store';
 import { DebugLogger } from '@affine/debug';
 import { Unreachable } from '@affine/env/constant';
 import { replaceIdMiddleware } from '@blocksuite/affine/shared/adapters';
@@ -281,6 +282,7 @@ export class DocsService extends Service {
         targetBsDoc,
         targetBsDoc.root?.id
       );
+      copyExcalidrawScene(sourceBsDoc.spaceDoc, targetBsDoc.spaceDoc);
     } catch (e) {
       logger.error('Failed to duplicate doc', {
         sourceDocId,
@@ -375,6 +377,7 @@ export class DocsService extends Service {
         targetBsDoc,
         targetBsDoc.root?.id
       );
+      copyExcalidrawScene(sourceBsDoc.spaceDoc, targetBsDoc.spaceDoc);
     } catch (e) {
       logger.error('Failed to duplicate doc', {
         sourceDocId,

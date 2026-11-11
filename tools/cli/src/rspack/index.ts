@@ -328,6 +328,17 @@ export function createHTMLTargetConfig(
               // copy the shared public assets into dist
               from: new Package('@affine/core').join('public').value,
             },
+            {
+              from: path.join(
+                path.dirname(
+                  createRequire(
+                    new Package('@affine/core').join('package.json').value
+                  ).resolve('@excalidraw/excalidraw')
+                ),
+                'fonts'
+              ),
+              to: 'excalidraw/fonts',
+            },
           ],
         }),
       createSentryPlugin(),
