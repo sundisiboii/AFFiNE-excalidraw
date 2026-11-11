@@ -97,7 +97,7 @@ Excalidraw's document listeners.
 From the repository root, build the complete server and frontend image:
 
 ```sh
-docker build -f .docker/selfhost/Dockerfile --build-arg GITHUB_SHA="$(git rev-parse HEAD)" -t affine-excalidraw:local .
+docker build --progress=plain -f .docker/selfhost/Dockerfile --build-arg GITHUB_SHA="$(git rev-parse HEAD)" -t affine-excalidraw:local .
 ```
 
 The Dockerfile uses pinned Node/Rust versions, the immutable Yarn lockfile,
@@ -130,6 +130,24 @@ replacing a production instance. To roll back, restore the previous image;
 original Edgeless blocks remain intact and the extension maps remain stored.
 Export drawings with the Excalidraw menu before returning to a client that
 cannot display them.
+
+## Troubleshooting a silent native build
+
+The N-API launcher runs `cargo metadata` with captured output before compiling.
+Dependency downloads or network retries in this phase can therefore appear idle,
+even with Docker's plain progress output. The Dockerfile now prints toolchain
+information and runs locked Cargo metadata resolution explicitly, with its
+stderr visible, before invoking N-API. It also separates the native and server
+bundles so their progress and failures are distinguishable.
+
+Build with `--progress=plain` as shown above. If it stops at metadata resolution,
+inspect Cargo's download, registry, DNS/TLS, or lock messages; time elapsed alone
+does not identify the cause. `Canceled: context canceled` reports interruption,
+not a compiler diagnosis. Cargo registry, Git, and target caches retain work
+across interrupted builds; do not prune the builder cache while troubleshooting.
+A first release compilation can still take substantial time once dependencies
+are available. These changes improve observability and retry efficiency; they
+do not establish which network/resource condition occurred on another host.
 
 ## Verification
 

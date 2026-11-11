@@ -20,9 +20,21 @@ ENV BUILD_TYPE=${BUILD_TYPE}
 RUN yarn affine @affine/web build \
     && yarn affine @affine/mobile build \
     && yarn affine @affine/admin build
-RUN CC="clang -D_BSD_SOURCE" yarn workspace @affine/server-native build \
-    && node -e 'const fs = require("node:fs"); fs.renameSync("packages/backend/native/server-native.node", "packages/backend/native/server-native." + (process.arch === "arm" ? "armv7" : process.arch) + ".node")' \
-    && yarn workspace @affine/server build
+# napi captures cargo metadata output internally, hiding dependency/network waits.
+# Run it explicitly first so --progress=plain exposes downloads and errors.
+# Cache dependencies and compiled artifacts even if a build is interrupted.
+ARG TARGETARCH
+RUN --mount=type=cache,id=affine-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=affine-cargo-git,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,id=affine-cargo-target-${TARGETARCH},target=/src/target,sharing=locked \
+    set -eux; \
+    rustup show active-toolchain; \
+    rustc --version; \
+    cargo --version; \
+    cargo metadata --locked --manifest-path packages/backend/native/Cargo.toml --format-version 1 > /tmp/affine-cargo-metadata.json; \
+    CC="clang -D_BSD_SOURCE" DEBUG="napi:*" yarn workspace @affine/server-native build; \
+    node -e 'const fs = require("node:fs"); fs.renameSync("packages/backend/native/server-native.node", "packages/backend/native/server-native." + (process.arch === "arm" ? "armv7" : process.arch) + ".node")'
+RUN yarn workspace @affine/server build
 # Match the existing release image's runtime dependency layout.
 RUN yarn workspaces focus @affine/server --production \
     && yarn workspace @affine/server prisma generate \
