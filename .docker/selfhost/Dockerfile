@@ -24,10 +24,15 @@ RUN yarn affine @affine/web build \
 # Run it explicitly first so --progress=plain exposes downloads and errors.
 # Cache dependencies and compiled artifacts even if a build is interrupted.
 ARG TARGETARCH
+# Use Git's HTTPS transport and expose its errors instead of Cargo's built-in
+# transport. Public dependencies must never wait for interactive credentials.
+ENV CARGO_NET_GIT_FETCH_WITH_CLI=true GIT_TERMINAL_PROMPT=0
 RUN --mount=type=cache,id=affine-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=affine-cargo-git,target=/usr/local/cargo/git,sharing=locked \
     --mount=type=cache,id=affine-cargo-target-${TARGETARCH},target=/src/target,sharing=locked \
     set -eux; \
+    git config --global http.lowSpeedLimit 1; \
+    git config --global http.lowSpeedTime 60; \
     rustup show active-toolchain; \
     rustc --version; \
     cargo --version; \

@@ -145,6 +145,26 @@ inspect Cargo's download, registry, DNS/TLS, or lock messages; time elapsed alon
 does not identify the cause. `Canceled: context canceled` reports interruption,
 not a compiler diagnosis. Cargo registry, Git, and target caches retain work
 across interrupted builds; do not prune the builder cache while troubleshooting.
+The image sets `CARGO_NET_GIT_FETCH_WITH_CLI=true` to use the installed Git
+client, disables interactive credential prompts, and aborts Git HTTPS transfers
+that remain below one byte/second for 60 seconds. This exposes transport errors
+and bounds stalled data transfers. It does not bypass DNS, proxy, firewall, or
+TLS problems. The pinned public `opus-codec` commit is
+`c2afef20773c3afb06395a26a4f054ca90ba9078`; no GitHub token is needed for it.
+
+To distinguish host connectivity from Docker connectivity, compare:
+
+```sh
+git ls-remote https://github.com/toeverything/opus-codec
+docker run --rm node:22.23.4-bookworm-slim node -e 'fetch("https://github.com/toeverything/opus-codec/info/refs?service=git-upload-pack", {signal: AbortSignal.timeout(30000)}).then(r => { console.log(r.status); process.exitCode = r.ok ? 0 : 1; }).catch(e => { console.error(e); process.exitCode = 1; })'
+```
+
+The second command is only an HTTPS reachability check from a normal container;
+BuildKit can use different network/proxy configuration. If host access works
+but container/build access fails, investigate Docker DNS, proxies, and outbound
+HTTPS routing. Do not disable TLS verification or change the pinned dependency
+as a workaround.
+
 A first release compilation can still take substantial time once dependencies
 are available. These changes improve observability and retry efficiency; they
 do not establish which network/resource condition occurred on another host.
